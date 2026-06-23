@@ -9,7 +9,7 @@ env:
   AWS_REGION: us-east-1
   ECR_REPO_FRONTEND: innovatech-frontend
   ECR_REPO_BACKEND: innovatech-backend
-  EKS_CLUSTER_NAME: pro-cluster
+  EKS_CLUSTER_NAME: innovatech-cluster  # <--- YA ACTUALIZADO CON TU NOMBRE REAL 🎯
 
 jobs:
   build-and-deploy:
@@ -75,6 +75,8 @@ jobs:
 
       - name: Verificar estado
         run: |
+          echo "=== Esperando actualizaciones ==="
+          sleep 10
           kubectl get deployments || true
           kubectl get services || true
           kubectl get pods || true
