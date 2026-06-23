@@ -9,6 +9,7 @@ env:
   AWS_REGION: us-east-1
   ECR_REPO_FRONTEND: innovatech-frontend
   ECR_REPO_BACKEND: innovatech-backend
+  EKS_CLUSTER_NAME: pro-cluster
 
 jobs:
   build-and-deploy:
@@ -50,8 +51,7 @@ jobs:
 
       - name: Configurar conexión a EKS
         run: |
-          # Forzamos directamente el nombre 'pro-cluster' de manera explícita
-          aws eks update-kubeconfig --region us-east-1 --name pro-cluster
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
       - name: Actualizar BACKEND en EKS
         env:
