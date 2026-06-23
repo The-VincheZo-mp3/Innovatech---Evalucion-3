@@ -9,7 +9,7 @@ env:
   AWS_REGION: us-east-1
   ECR_REPO_FRONTEND: innovatech-frontend
   ECR_REPO_BACKEND: innovatech-backend
-  EKS_CLUSTER_NAME: innovatech-cluster  # <--- YA ACTUALIZADO CON TU NOMBRE REAL 🎯
+  EKS_CLUSTER_NAME: innovatech-cluster  
 
 jobs:
   build-and-deploy:
