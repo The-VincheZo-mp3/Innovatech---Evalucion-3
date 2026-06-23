@@ -1,0 +1,34 @@
+services:
+
+  backend:
+    build:
+      context: ./repo_Backend
+    container_name: backend-container
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - app-network
+    user: root   
+
+  frontend:
+    build:
+      context: ./repo_Frontend
+    container_name: frontend-container
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://backend:8080
+    networks:
+      - app-network
+
+volumes:
+  backend_data:
+
+networks:
+  app-network:
