@@ -1,87 +1,163 @@
-name: CI/CD Innovatech ECS Monorepo
+name: CI/CD Innovatech EKS Monorepo
+
+
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch: {}
+
+ push:
+
+  branches: [ main ]
+
+ workflow_dispatch: {}
+
+
 
 env:
-  AWS_REGION: us-east-1
-  ECR_REPO_FRONTEND: innovatech-frontend
-  ECR_REPO_BACKEND: innovatech-backend
-  ECS_CLUSTER: innovatech-cluster
-  ECS_SERVICE_FRONTEND: innovatech-frontend-service
-  ECS_SERVICE_BACKEND: innovatech-backend-service
+
+ AWS_REGION: us-east-1
+
+ ECR_REPO_FRONTEND: innovatech-frontend
+
+ ECR_REPO_BACKEND: innovatech-backend
+
+ EKS_CLUSTER_NAME: innovatech-cluster  
+
+
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
+ build-and-deploy:
 
-      - name: Configurar credenciales AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ env.AWS_REGION }}
+  runs-on: ubuntu-latest
 
-      - name: Login a Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Definir tag de imagen
-        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-      # --- 1. CONSTRUIR Y SUBIR IMÁGENES A ECR ---
-      - name: Build & push BACKEND
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          sed -i 's/RUN .\/mvnw/RUN mvn/g' ./repo_Backend/Dockerfile || true
-          docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:${{ env.IMAGE_TAG }} ./repo_Backend
-          docker push $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:${{ env.IMAGE_TAG }}
+  steps:
 
-      - name: Build & push FRONTEND
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:${{ env.IMAGE_TAG }} ./repo_Frontend
-          docker push $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:${{ env.IMAGE_TAG }}
+   - name: Checkout código
 
-      # --- 2. DESPLIEGUE DEL BACKEND EN ECS ---
-      - name: Insertar nueva imagen en Task Definition (Backend)
-        id: task-def-backend
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definitions/backend-task.json
-          container-name: backend-container
-          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BACKEND }}:${{ env.IMAGE_TAG }}
+    uses: actions/checkout@v4
 
-      - name: Desplegar Backend en Amazon ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def-backend.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE_BACKEND }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
 
-      # --- 3. DESPLIEGUE DEL FRONTEND EN ECS ---
-      - name: Insertar nueva imagen en Task Definition (Frontend)
-        id: task-def-frontend
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definitions/frontend-task.json
-          container-name: frontend-container
-          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_FRONTEND }}:${{ env.IMAGE_TAG }}
 
-      - name: Desplegar Frontend en Amazon ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def-frontend.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE_FRONTEND }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+   - name: Configurar credenciales AWS
+
+    uses: aws-actions/configure-aws-credentials@v4
+
+    with:
+
+     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+
+     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+     aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+
+     aws-region: ${{ env.AWS_REGION }}
+
+
+
+   - name: Login a Amazon ECR
+
+    id: login-ecr
+
+    uses: aws-actions/amazon-ecr-login@v2
+
+
+
+   - name: Definir tag de imagen
+
+    run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+
+
+   - name: Build & push BACKEND
+
+    env:
+
+     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+
+    run: |
+
+     sed -i 's/RUN .\/mvnw/RUN mvn/g' ./repo_Backend/Dockerfile || true
+
+     docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:${{ env.IMAGE_TAG }} ./repo_Backend
+
+     docker push $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:${{ env.IMAGE_TAG }}
+
+
+
+   - name: Build & push FRONTEND
+
+    env:
+
+     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+
+    run: |
+
+     docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:${{ env.IMAGE_TAG }} ./repo_Frontend
+
+     docker push $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:${{ env.IMAGE_TAG }}
+
+
+
+   - name: Configurar conexión a EKS
+
+    run: |
+
+     aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+
+
+   - name: Actualizar BACKEND en EKS
+
+    env:
+
+     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+
+    run: |
+
+     if [ -d "k8s" ]; then
+
+      kubectl apply -f k8s/backend-deployment.yaml || true
+
+      kubectl apply -f k8s/backend-service.yaml || true
+
+     fi
+
+     kubectl set image deployment/innovatech-backend backend-container=$ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:${{ env.IMAGE_TAG }} || true
+
+
+
+   - name: Actualizar FRONTEND en EKS
+
+    env:
+
+     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+
+    run: |
+
+     if [ -d "k8s" ]; then
+
+      kubectl apply -f k8s/frontend-deployment.yaml || true
+
+      kubectl apply -f k8s/frontend-service.yaml || true
+
+     fi
+
+     kubectl set image deployment/innovatech-frontend frontend-container=$ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:${{ env.IMAGE_TAG }} || true
+
+
+
+   - name: Verificar estado
+
+    run: |
+
+     echo "=== Esperando actualizaciones ==="
+
+     sleep 10
+
+     kubectl get deployments || true
+
+     kubectl get services || true
+
+     kubectl get pods || true
