@@ -82,6 +82,9 @@ jobs:
                 image: $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG
                 ports:
                 - containerPort: 3000
+                resources:
+                  requests:
+                    cpu: "100m"
         ---
         apiVersion: v1
         kind: Service
@@ -98,7 +101,7 @@ jobs:
             app: innovatech-backend
         EOF
 
-        # 2. MANIFIESTO FRONTEND (Deployment y Service corregido a NodePort para Fargate)
+        # 2. MANIFIESTO FRONTEND (Deployment y Service como NodePort)
         cat <<EOF > k8s/frontend.yaml
         apiVersion: apps/v1
         kind: Deployment
@@ -120,6 +123,9 @@ jobs:
                 image: $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:$IMAGE_TAG
                 ports:
                 - containerPort: 80
+                resources:
+                  requests:
+                    cpu: "100m"
         ---
         apiVersion: v1
         kind: Service
@@ -136,9 +142,33 @@ jobs:
             app: innovatech-frontend
         EOF
 
-        # Aplicar configuraciones en Amazon EKS
+        # 3. MANIFIESTO DE ESCALADO AUTOMÁTICO (HPA adaptado de la sugerencia del compañero)
+        cat <<EOF > k8s/frontend-hpa.yaml
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: innovatech-frontend-scaler
+          namespace: default
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: innovatech-frontend
+          minReplicas: 1            # <--- Tareas mínimas: 1
+          maxReplicas: 3            # <--- Tareas máximas: 3
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              target:
+                type: Utilization
+                averageUtilization: 70 # <--- Valor objetivo: 70% de CPU
+        EOF
+
+        # Aplicar todas las configuraciones en Amazon EKS
         kubectl apply -f k8s/backend.yaml
         kubectl apply -f k8s/frontend.yaml
+        kubectl apply -f k8s/frontend-hpa.yaml
 
     - name: Verify Cluster Deployment Status
       run: |
@@ -146,3 +176,5 @@ jobs:
         kubectl get pods -n default
         echo "=== Verificando estado de los Servicios ==="
         kubectl get svc -n default
+        echo "=== Verificando estado del Escalado Automático (HPA) ==="
+        kubectl get hpa -n default
