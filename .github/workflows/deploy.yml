@@ -53,26 +53,98 @@ jobs:
         run: |
           aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
-      - name: Actualizar BACKEND en EKS
+      - name: Generar y Aplicar Manifiestos de Kubernetes
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          kubectl apply -f k8s/backend-deployment.yaml || true
-          kubectl apply -f k8s/backend-service.yaml || true
-          kubectl set image deployment/innovatech-backend backend-container=$ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:${{ env.IMAGE_TAG }} || true
+          mkdir -p k8s
+          
+          # 1. Generar Backend Deployment
+          cat <<EOF > k8s/backend-deployment.yaml
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: innovatech-backend
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: innovatech-backend
+            template:
+              metadata:
+                labels:
+                  app: innovatech-backend
+              spec:
+                containers:
+                - name: backend-container
+                  image: $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:${{ env.IMAGE_TAG }}
+                  ports:
+                  - containerPort: 8080
+          EOF
 
-      - name: Actualizar FRONTEND en EKS
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          kubectl apply -f k8s/frontend-deployment.yaml || true
-          kubectl apply -f k8s/frontend-service.yaml || true
-          kubectl set image deployment/innovatech-frontend frontend-container=$ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:${{ env.IMAGE_TAG }} || true
+          # 2. Generar Backend Service
+          cat <<EOF > k8s/backend-service.yaml
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: innovatech-backend
+          spec:
+            type: ClusterIP
+            ports:
+            - port: 8080
+              targetPort: 8080
+            selector:
+              app: innovatech-backend
+          EOF
+
+          # 3. Generar Frontend Deployment
+          cat <<EOF > k8s/frontend-deployment.yaml
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: innovatech-frontend
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: innovatech-frontend
+            template:
+              metadata:
+                labels:
+                  app: innovatech-frontend
+              spec:
+                containers:
+                - name: frontend-container
+                  image: $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:${{ env.IMAGE_TAG }}
+                  ports:
+                  - containerPort: 80
+          EOF
+
+          # 4. Generar Frontend Service (LoadBalancer para acceso público)
+          cat <<EOF > k8s/frontend-service.yaml
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: innovatech-frontend
+          spec:
+            type: LoadBalancer
+            ports:
+            - port: 80
+              targetPort: 80
+            selector:
+              app: innovatech-frontend
+          EOF
+
+          # Aplicar los manifiestos generados en el clúster
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/backend-service.yaml
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-service.yaml
 
       - name: Verificar estado
         run: |
-          echo "=== Esperando actualizaciones ==="
-          sleep 10
-          kubectl get deployments || true
-          kubectl get services || true
-          kubectl get pods || true
+          echo "=== Esperando que los Pods inicien ==="
+          sleep 15
+          kubectl get deployments
+          kubectl get services
+          kubectl get pods
