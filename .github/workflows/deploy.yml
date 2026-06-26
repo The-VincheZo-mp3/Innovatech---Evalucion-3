@@ -8,8 +8,8 @@ on:
 env:
   AWS_REGION: us-east-1
   EKS_CLUSTER_NAME: innovatech-cluster
-  ECR_REPO_FRONTEND: repo_Frontend   # <-- REPARADO: Con la 'F' mayúscula como está en AWS
-  ECR_REPO_BACKEND: repo_Backend     # <-- REPARADO: Con la 'B' mayúscula como está en AWS
+  ECR_REPO_FRONTEND: repo_frontend   # <-- CORREGIDO A MINÚSCULAS EXIGIDAS POR DOCKER
+  ECR_REPO_BACKEND: repo_backend     # <-- CORREGIDO A MINÚSCULAS EXIGIDAS POR DOCKER
 
 jobs:
   deploy:
@@ -37,6 +37,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
+        # Usamos el nombre del repositorio en minúsculas, pero la carpeta de origen mantiene su nombre real `./repo_Frontend`
         docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:$IMAGE_TAG ./repo_Frontend
         docker push $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:$IMAGE_TAG
 
@@ -45,6 +46,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
+        # Usamos el nombre del repositorio en minúsculas, pero la carpeta de origen mantiene su nombre real `./repo_Backend`
         docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG ./repo_Backend
         docker push $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG
 
@@ -57,7 +59,6 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Crear la carpeta k8s dinámicamente si no existe
         mkdir -p k8s
 
         # 1. MANIFIESTO BACKEND (Deployment y Service como NodePort)
@@ -154,15 +155,15 @@ jobs:
             apiVersion: apps/v1
             kind: Deployment
             name: innovatech-frontend
-          minReplicas: 1            # <--- Tareas mínimas: 1
-          maxReplicas: 3            # <--- Tareas máximas: 3
+          minReplicas: 1
+          maxReplicas: 3
           metrics:
           - type: Resource
             resource:
               name: cpu
               target:
                 type: Utilization
-                averageUtilization: 70 # <--- Valor objetivo: 70% de CPU
+                averageUtilization: 70
         EOF
 
         # Aplicar todas las configuraciones en Amazon EKS
