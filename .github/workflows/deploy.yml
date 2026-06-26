@@ -8,8 +8,8 @@ on:
 env:
   AWS_REGION: us-east-1
   EKS_CLUSTER_NAME: innovatech-cluster
-  ECR_REPO_FRONTEND: repo_frontend   # <-- CORREGIDO A MINÚSCULAS EXIGIDAS POR DOCKER
-  ECR_REPO_BACKEND: repo_backend     # <-- CORREGIDO A MINÚSCULAS EXIGIDAS POR DOCKER
+  ECR_REPO_FRONTEND: innovatech-frontend   # <-- CORREGIDO: Tu repositorio real de la captura
+  ECR_REPO_BACKEND: innovatech-backend     # <-- CORREGIDO: Tu repositorio real de la captura
 
 jobs:
   deploy:
@@ -37,7 +37,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Usamos el nombre del repositorio en minúsculas, pero la carpeta de origen mantiene su nombre real `./repo_Frontend`
+        # Compila desde la carpeta física, pero sube al repositorio correcto
         docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:$IMAGE_TAG ./repo_Frontend
         docker push $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:$IMAGE_TAG
 
@@ -46,7 +46,7 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Usamos el nombre del repositorio en minúsculas, pero la carpeta de origen mantiene su nombre real `./repo_Backend`
+        # Compila desde la carpeta física, pero sube al repositorio correcto
         docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG ./repo_Backend
         docker push $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG
 
@@ -143,7 +143,7 @@ jobs:
             app: innovatech-frontend
         EOF
 
-        # 3. MANIFIESTO DE ESCALADO AUTOMÁTICO (HPA adaptado para la rúbrica)
+        # 3. MANIFIESTO DE ESCALADO AUTOMÁTICO (HPA que quería tu compañero)
         cat <<EOF > k8s/frontend-hpa.yaml
         apiVersion: autoscaling/v2
         kind: HorizontalPodAutoscaler
