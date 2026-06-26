@@ -8,8 +8,8 @@ on:
 env:
   AWS_REGION: us-east-1
   EKS_CLUSTER_NAME: innovatech-cluster
-  ECR_REPO_FRONTEND: repo_frontend
-  ECR_REPO_BACKEND: repo_backend
+  ECR_REPO_FRONTEND: repo_Frontend   # <-- REPARADO: Con la 'F' mayúscula como está en AWS
+  ECR_REPO_BACKEND: repo_Backend     # <-- REPARADO: Con la 'B' mayúscula como está en AWS
 
 jobs:
   deploy:
@@ -142,7 +142,7 @@ jobs:
             app: innovatech-frontend
         EOF
 
-        # 3. MANIFIESTO DE ESCALADO AUTOMÁTICO (HPA adaptado de la sugerencia del compañero)
+        # 3. MANIFIESTO DE ESCALADO AUTOMÁTICO (HPA adaptado para la rúbrica)
         cat <<EOF > k8s/frontend-hpa.yaml
         apiVersion: autoscaling/v2
         kind: HorizontalPodAutoscaler
