@@ -8,8 +8,8 @@ on:
 env:
   AWS_REGION: us-east-1
   EKS_CLUSTER_NAME: innovatech-cluster
-  ECR_REPO_FRONTEND: innovatech-frontend   # <-- CORREGIDO: Tu repositorio real de la captura
-  ECR_REPO_BACKEND: innovatech-backend     # <-- CORREGIDO: Tu repositorio real de la captura
+  ECR_REPO_FRONTEND: innovatech-frontend
+  ECR_REPO_BACKEND: innovatech-backend
 
 jobs:
   deploy:
@@ -37,7 +37,6 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Compila desde la carpeta física, pero sube al repositorio correcto
         docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:$IMAGE_TAG ./repo_Frontend
         docker push $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:$IMAGE_TAG
 
@@ -46,7 +45,9 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Compila desde la carpeta física, pero sube al repositorio correcto
+        # SOLUCIÓN AL ERROR 126: Damos permiso de ejecución al wrapper de Maven antes del build de Docker
+        chmod +x ./repo_Backend/mvnw
+        
         docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG ./repo_Backend
         docker push $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG
 
@@ -143,7 +144,7 @@ jobs:
             app: innovatech-frontend
         EOF
 
-        # 3. MANIFIESTO DE ESCALADO AUTOMÁTICO (HPA que quería tu compañero)
+        # 3. MANIFIESTO DE ESCALADO AUTOMÁTICO (HPA Min 1, Max 3, CPU 70%)
         cat <<EOF > k8s/frontend-hpa.yaml
         apiVersion: autoscaling/v2
         kind: HorizontalPodAutoscaler
