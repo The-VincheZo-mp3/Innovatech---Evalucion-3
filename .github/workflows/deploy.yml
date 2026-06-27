@@ -45,7 +45,6 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Usamos tu infraestructura de AWS y el Dockerfile limpio para compilar el Backend
         docker build -t $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG ./repo_Backend
         docker push $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG
 
@@ -60,7 +59,10 @@ jobs:
       run: |
         mkdir -p k8s
 
-        # 1. MANIFIESTO BACKEND (Deployment y Service como NodePort)
+        # LIMPIEZA PREVIA: Borramos despliegues antiguos colgados para evitar basura en el clúster
+        kubectl delete deployment innovatech-backend innovatech-frontend --ignore-not-found=true
+
+        # 1. MANIFIESTO BACKEND (Reparado para AWS Fargate)
         cat <<EOF > k8s/backend.yaml
         apiVersion: apps/v1
         kind: Deployment
@@ -82,9 +84,6 @@ jobs:
                 image: $ECR_REGISTRY/${{ env.ECR_REPO_BACKEND }}:$IMAGE_TAG
                 ports:
                 - containerPort: 3000
-                resources:
-                  requests:
-                    cpu: "100m"
         ---
         apiVersion: v1
         kind: Service
@@ -101,7 +100,7 @@ jobs:
             app: innovatech-backend
         EOF
 
-        # 2. MANIFIESTO FRONTEND (Deployment y Service como NodePort)
+        # 2. MANIFIESTO FRONTEND (Reparado para AWS Fargate)
         cat <<EOF > k8s/frontend.yaml
         apiVersion: apps/v1
         kind: Deployment
@@ -123,9 +122,6 @@ jobs:
                 image: $ECR_REGISTRY/${{ env.ECR_REPO_FRONTEND }}:$IMAGE_TAG
                 ports:
                 - containerPort: 80
-                resources:
-                  requests:
-                    cpu: "100m"
         ---
         apiVersion: v1
         kind: Service
@@ -165,7 +161,7 @@ jobs:
                 averageUtilization: 70
         EOF
 
-        # Aplicar todas las configuraciones en Amazon EKS
+        # Aplicar los manifiestos limpios en Amazon EKS
         kubectl apply -f k8s/backend.yaml
         kubectl apply -f k8s/frontend.yaml
         kubectl apply -f k8s/frontend-hpa.yaml
